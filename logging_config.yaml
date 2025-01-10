@@ -1,0 +1,88 @@
+version: 1  # You must include this or the config doesn't work. It's to ensure backward compatibility
+
+disable_existing_loggers: true  # Disable any existing loggers that are already configured
+
+
+formatters:
+  standard:
+    format: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+  node:
+    format: "%(asctime)s [%(levelname)s] %(name)s: {%(node_id)s} %(message)s"
+  json:
+    class: pythonjsonlogger.jsonlogger.JsonFormatter
+    fmt: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+
+
+handlers:
+  # Default handler, console only
+  console:
+    level: INFO
+    formatter: standard
+    class: logging.StreamHandler
+    stream: ext://sys.stdout
+  # Node-specific console handler, includes node_id in log message
+  console_node:
+    level: INFO
+    formatter: node
+    class: logging.StreamHandler
+    stream: ext://sys.stdout
+  # File handler for base module
+  base_file:
+    level: DEBUG
+    formatter: json
+    class: logging.FileHandler
+    filename: base_debug.log
+    mode: w
+  # File handler for custom module (to demonstrate piping to multiple files)
+  custom_file:
+    level: DEBUG
+    formatter: json
+    class: logging.FileHandler
+    filename: custom_debug.log
+    mode: w
+  # File handler for master log file, with log rotation
+  # In practice I still use a separate file for each module, but this is just to demonstrate
+  master_log_file:
+    class : logging.handlers.RotatingFileHandler
+    formatter: json
+    level   : DEBUG
+    filename: master_log_file.log
+    maxBytes: 10_000_000
+    backupCount: 7
+
+loggers:
+  # Logger for the 'base' module
+  # Logs from this logger will be written to the console and to a file
+  # Note that the custom node handler is used to ensure that the node_id is included in the log message sent to console output
+  base:
+    handlers:
+      - console_node
+      - base_file
+      - master_log_file
+    level: DEBUG
+    propagate: true
+
+  # Logger for the 'custom' module
+  # Logs from this logger will be written to the console and to a file
+  # Note that the custom node handler is used to ensure that the node_id is included in the log message sent to console output
+  custom:
+    handlers:
+      - console_node
+      - custom_file
+      - master_log_file
+    level: DEBUG
+    propagate: true
+
+  # Logger for the '__main__' module
+  # Note that the default handler is used to log messages from the main module
+  __main__:  # if __name__ == '__main__'
+    handlers:
+      - console
+    level: DEBUG
+    propagate: false
+
+root:
+  level: DEBUG
+  handlers:
+    - console
+  propagate: false

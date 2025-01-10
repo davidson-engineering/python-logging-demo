@@ -25,8 +25,8 @@ if __name__ == "__main__":
     config = load_yaml(Path("logging_config.yaml"))
     setup_logging(config)
 
-    from src.base.base_node import BaseNode
-    from src.custom.custom_node import BackwardsNode
+    from src.node.base.base_node import BaseNode
+    from src.node.custom.custom_node import BackwardsNode
 
     try:
         nodes = []

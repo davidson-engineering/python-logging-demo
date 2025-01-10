@@ -1,9 +1,10 @@
 import logging
 import random
+from threading import Thread
 import time
 
 # Get the logger name from the module name
-# Module ame is 'base.base_node' -> logger name is 'base.base_node'
+# Module name is 'base.base_node' -> logger name is 'base.base_node'
 logger = logging.getLogger(__name__)
 
 
@@ -17,43 +18,27 @@ class FakeException(Exception):
         return f"FakeException: {self.args[0]}"
 
 
-class ExtraLoggingAdapter(logging.LoggerAdapter):
-    """Injects additional 'extra' fields into the log record"""
-
-    def process(self, msg, kwargs):
-        extra = self.extra.copy()
-        if "extra" in kwargs:
-            extra.update(kwargs["extra"])
-        kwargs["extra"] = extra
-        return msg, kwargs
-
-
-class NodeLoggingAdapter(ExtraLoggingAdapter):
-    """Injects node-class specific 'extra' fields into the log record"""
-
-    def process(self, msg, kwargs):
-        self.extra["node_id"] = self.extra.get("node_id", "N/A")
-        self.extra["node_type"] = self.extra.get("node_type", "N/A")
-        return super().process(msg, kwargs)
-
-
 def _id_generator(prefix=""):
-    yield f"{prefix}-{time.time_ns()}"
+    while True:
+        # Generate pseudo-unique node IDs using the current time
+        yield f"{prefix}-{str(time.time_ns())[:-10]}"
 
 
-class BaseNode:
+class BaseNode(Thread):
 
     _id_generator = _id_generator("node")
 
     def __init__(self, error_probability=0.1):
+        super().__init__()
         self.id = next(self._id_generator)
         self.error_probability = error_probability
         # The adapted logger belongs to the class and is used for logging messages from the node class
         # Is is retrievable globally by calling >>> logging.getLogger(base.base_node)
         self.logger = self._build_logger()
+        self._node_stopped = False
 
     def _build_logger(self):
-        return NodeLoggingAdapter(
+        return logging.LoggerAdapter(
             logger,
             {
                 "node_id": self.id,
@@ -64,17 +49,15 @@ class BaseNode:
     def run(self):
         self.logger.info("Running node")
         try:
-            # Do something
-            while True:
+            while not self._node_stopped:
                 time.sleep(0.5)
                 self.logger.info("Node continues to run")
-                # Roll dice to raise an exception
                 if random.random() < self.error_probability:
-                    # Simulate an error
                     raise FakeException("An error occurred")
         except FakeException as e:
-            self.logger.exception(e)
+            self.logger.error(e)
             self.stop()
 
     def stop(self):
         self.logger.info("Stopping node")
+        self._node_stopped = True
